@@ -43,7 +43,7 @@ module ActiveSupport
       def write_entry(key, entry, options)
         in_each_store(selected_stores(options)) do |name, store|
           record_event(:write, cache_name: name) do
-            !!store.send(:write_entry, key, entry, options)
+            !!store.send(:write, key, entry, options)
           end
         end
       end
@@ -51,7 +51,7 @@ module ActiveSupport
       def delete_entry(key, options)
         selected_stores(options).each do |name, store|
           record_event(:delete, cache_name: name) do
-            store.send :delete_entry, key, options
+            store.send(:delete, key, options)
           end
         end
       end
@@ -71,7 +71,7 @@ module ActiveSupport
 
         entry = stores.lazy.map do |name, store|
           record_event(:read, cache_name: name) do
-            entry = store.send :read_entry, key, options
+            entry = store.send(:read, key, options)
           end
 
           if entry
