@@ -6,6 +6,8 @@ if ActiveSupport::VERSION::MAJOR == 3
   require 'securerandom'
 end
 
+require "monitor"
+
 module ActiveSupport
   module Cache
     class Level2 < Store
@@ -21,7 +23,9 @@ module ActiveSupport
           provided = provided_namespace.is_a?(Proc) ? provided_namespace.call : ''
           @store_name + ':' + provided
         end
-
+        
+        @monitor = Monitor.new
+         
         super(store_options)
       end
 
@@ -33,6 +37,14 @@ module ActiveSupport
         @stores.each_value { |s| s.clear(*args) }
       end
 
+      def increment(name, amount = 1, options = nil)
+        modify_value(name, amount, options)
+      end
+
+      def decrement(name, amount = 1, options = nil)
+        modify_value(name, -amount, options)
+      end
+      
       protected
 
       def read_entry(key, options)
@@ -113,6 +125,23 @@ module ActiveSupport
         else
           only = [only] unless only.is_a?(Array)
           @stores.select { |name, _| only.include?(name) }
+        end
+      end
+      
+      # Synchronize calls to the cache. This should be called wherever the underlying cache implementation
+      # is not thread safe.
+      def synchronize(&block) # :nodoc:
+        @monitor.synchronize(&block)
+      end
+
+      def modify_value(name, amount, options)
+        options = merged_options(options)
+        synchronize do
+          if num = read(name, options)
+            num = num.to_i + amount
+            write(name, num, options)
+            num
+          end
         end
       end
     end
